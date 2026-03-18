@@ -496,35 +496,33 @@ function handleFile(file) {
       }
 
       // ── Special extraction: 12oz Whole Bean retail price ──────────────────
-      // Scans the SKU table for a row where col A contains a SKU ending in
-      // "12WB" or where UNITS="12-oz" and DESCRIPTION contains "Whole Bean",
-      // then grabs the RETAIL column value.
-      // The SKU table header row tells us which column index is RETAIL.
+      // Scans the SKU table for a row where the SKU ends in "12WB",
+      // then grabs the RETAIL column value using the header row to find it.
       let retailColIndex = -1;
+      let inSkuTable = false;
       for (const row of rows) {
         const cells = row.map(c => String(c ?? '').trim());
 
-        // Detect the SKU table header row
-        if (cells.includes('RETAIL') && cells.includes('UNITS')) {
-          retailColIndex = cells.indexOf('RETAIL');
+        // Detect the SKU table header row by presence of both RETAIL and UNITS
+        const upperCells = cells.map(c => c.toUpperCase());
+        if (upperCells.includes('RETAIL') && upperCells.includes('UNITS')) {
+          retailColIndex = upperCells.indexOf('RETAIL');
+          inSkuTable = true;
           continue;
         }
 
-        // Once we know the retail column, find the 12oz Whole Bean row
-        if (retailColIndex > -1) {
-          const sku  = cells[0].toUpperCase();
-          const units = cells[1] ? cells[1].toUpperCase() : '';
-          const desc  = cells[2] ? cells[2].toUpperCase() : '';
-          const isWB12 = sku.endsWith('12WB') ||
-                         (units.includes('12') && desc.includes('WHOLE BEAN'));
+        if (inSkuTable && retailColIndex > -1) {
+          const sku = cells[0].toUpperCase();
+
+          // Stop scanning if we've left the SKU table
+          if (cells[0] === '' || sku === 'NAN' || sku.includes('TASTING') || sku.includes('BODY')) break;
+
+          const isWB12 = sku.endsWith('12WB');
           if (isWB12) {
             const price = cells[retailColIndex];
-            if (price && price !== '' && price !== 'NAN') {
-              // Format as currency string e.g. "$28.50"
+            if (price && price !== '' && price !== 'nan' && price !== 'NAN' && price !== '-') {
               const num = parseFloat(price);
-              record['retail_price_12oz'] = isNaN(num)
-                ? price
-                : '$' + num.toFixed(2);
+              record['retail_price_12oz'] = isNaN(num) ? price : '$' + num.toFixed(2);
             }
             break;
           }
