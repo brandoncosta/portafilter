@@ -222,7 +222,6 @@
 
   .clear-btn:hover { color: var(--danger); }
 
-  /* Fields preview */
   .fields-section {
     margin: 1.25rem 2rem 0;
     display: none;
@@ -240,22 +239,27 @@
   }
 
   .fields-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
   }
 
   .field-item {
-    display: flex;
+    display: grid;
+    grid-template-columns: 10px 130px 1fr;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
     font-family: var(--mono);
     font-size: 0.68rem;
     color: var(--muted);
-    transition: color 0.2s;
+    padding: 0.35rem 0.6rem;
+    border-radius: 4px;
+    transition: background 0.15s;
   }
 
-  .field-item.found { color: var(--text); }
+  .field-item.found {
+    background: color-mix(in srgb, var(--accent) 5%, transparent);
+  }
 
   .field-dot {
     width: 5px;
@@ -263,10 +267,33 @@
     border-radius: 50%;
     background: var(--border);
     flex-shrink: 0;
+    justify-self: center;
     transition: background 0.2s;
   }
 
   .field-item.found .field-dot { background: var(--accent); }
+
+  .field-key {
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .field-item.found .field-key { color: var(--text); }
+
+  .field-value {
+    color: var(--accent2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.67rem;
+  }
+
+  .field-item:not(.found) .field-value {
+    color: var(--border);
+    font-style: italic;
+  }
 
   /* Actions */
   .actions {
@@ -432,7 +459,11 @@ let parsedRecord = null;
 // Build field checklist UI
 const allCsvKeys = [...Object.values(FIELD_MAP), ...EXTRA_FIELDS];
 fieldsGrid.innerHTML = allCsvKeys.map(k =>
-  `<div class="field-item" id="fi-${k}"><span class="field-dot"></span>${k}</div>`
+  `<div class="field-item" id="fi-${k}">
+    <span class="field-dot"></span>
+    <span class="field-key">${k}</span>
+    <span class="field-value" id="fv-${k}">—</span>
+  </div>`
 ).join('');
 
 function formatBytes(b) {
@@ -450,6 +481,8 @@ function resetFieldDots() {
   allCsvKeys.forEach(k => {
     const el = document.getElementById(`fi-${k}`);
     if (el) el.classList.remove('found');
+    const vEl = document.getElementById(`fv-${k}`);
+    if (vEl) vEl.textContent = '—';
   });
 }
 
@@ -534,15 +567,22 @@ function handleFile(file) {
 
       // Update field dots
       let found = 0;
-      for (const [label, csvKey] of Object.entries(FIELD_MAP)) {
-        if (record[csvKey] !== undefined && record[csvKey] !== '') {
+      const allKeys = [...Object.values(FIELD_MAP), ...EXTRA_FIELDS];
+      for (const csvKey of allKeys) {
+        const value = record[csvKey];
+        if (value !== undefined && value !== '') {
           const el = document.getElementById(`fi-${csvKey}`);
           if (el) el.classList.add('found');
+          const vEl = document.getElementById(`fv-${csvKey}`);
+          if (vEl) {
+            const preview = value.length > 38 ? value.slice(0, 38) + '…' : value;
+            vEl.textContent = preview;
+          }
           found++;
         }
       }
 
-      const total = Object.keys(FIELD_MAP).length;
+      const total = allKeys.length;
       if (found === 0) {
         setStatus('No matching fields found. Check your sheet labels.', 'err');
       } else {
