@@ -609,6 +609,18 @@ function clearFile() {
   setStatus('Select a file to begin', 'info');
 }
 
+function toUTF16LE(str) {
+  // BOM for UTF-16 LE, then encode each character as 2 bytes little-endian
+  const buf = new ArrayBuffer(2 + str.length * 2);
+  const view = new DataView(buf);
+  view.setUint8(0, 0xFF);
+  view.setUint8(1, 0xFE);
+  for (let i = 0; i < str.length; i++) {
+    view.setUint16(2 + i * 2, str.charCodeAt(i), true);
+  }
+  return buf;
+}
+
 function downloadCSV() {
   if (!parsedRecord) return;
 
@@ -624,7 +636,10 @@ function downloadCSV() {
       const dataRow   = headers.map(h => escape(parsedRecord[h] ?? '')).join(',');
       const csv = `${headerRow}\n${dataRow}\n`;
 
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      // Encode as UTF-16 LE with BOM so InDesign handles smart quotes
+      // and other special characters correctly on import
+      const utf16 = toUTF16LE(csv);
+      const blob = new Blob([utf16], { type: 'text/csv;charset=utf-16;' });
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
       const baseName = (currentFile?.name || 'infosheet').replace(/\.(xlsx|xls)$/i, '');
